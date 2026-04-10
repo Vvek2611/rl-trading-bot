@@ -6,3 +6,5 @@ ta
 stable-baselines3
 torch
 gymnasium
+streamlit
+plotly
