@@ -1,0 +1,8 @@
+yfinance
+pandas
+numpy
+matplotlib
+ta
+stable-baselines3
+torch
+gymnasium

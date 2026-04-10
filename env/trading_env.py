@@ -4,16 +4,21 @@ import numpy as np
 class TradingEnv(gym.Env):
     def __init__(self, df, initial_cash=10000):
         super().__init__()
-        self.df           = df.reset_index(drop=True)
+        self.df = df.reset_index(drop=True)
+        self.df.columns = [col[0] if isinstance(col, tuple) else col for col in self.df.columns]
         self.initial_cash = initial_cash
-        self.feature_cols = ['Close','EMA_20','EMA_50','RSI',
-                             'MACD','MACD_Signal','BB_Width',
-                             'ATR','Volume_Ratio','MACD_Hist']
-        self.window       = 10
-        n_features        = len(self.feature_cols) * self.window + 3
-        self.action_space      = gym.spaces.Discrete(3)
+        self.feature_cols = [
+            'Close', 'EMA_20', 'EMA_50', 'RSI',
+            'MACD', 'MACD_Signal', 'BB_Width',
+            'ATR', 'Volume_Ratio', 'MACD_Hist'
+        ]
+        self.window = 10
+        n_features = len(self.feature_cols) * self.window + 3
+        self.action_space = gym.spaces.Discrete(3)
         self.observation_space = gym.spaces.Box(
-            low=-np.inf, high=np.inf, shape=(n_features,), dtype=np.float32)
+            low=-np.inf, high=np.inf,
+            shape=(n_features,), dtype=np.float32
+        )
 
     def _get_obs(self):
         w = self.df.iloc[self.idx - self.window: self.idx]
@@ -22,9 +27,11 @@ class TradingEnv(gym.Env):
             arr = w[col].values.astype(float)
             features.extend((arr - arr.mean()) / (arr.std() + 1e-8))
         pv = self.cash + self.shares * float(self.df.iloc[self.idx]['Close'])
-        features += [float(self.position),
-                     (pv - self.initial_cash) / self.initial_cash,
-                     self.cash / self.initial_cash]
+        features += [
+            float(self.position),
+            (pv - self.initial_cash) / self.initial_cash,
+            self.cash / self.initial_cash
+        ]
         return np.array(features, dtype=np.float32)
 
     def reset(self, seed=None, options=None):
@@ -55,11 +62,13 @@ class TradingEnv(gym.Env):
             self.position = 0
 
         elif action == 0 and self.position == 1:
-            next_price = float(self.df.iloc[self.idx + 1]['Close'])
-            reward     = (next_price - price) / price * 10
+            if self.idx + 1 < len(self.df):
+                next_price = float(self.df.iloc[self.idx + 1]['Close'])
+                reward     = (next_price - price) / price * 10
 
         pv = self.cash + self.shares * price
         self.portfolio_history.append(pv)
         self.idx += 1
         done = self.idx >= len(self.df) - 1
+
         return self._get_obs(), reward, done, False, {'portfolio': pv}
